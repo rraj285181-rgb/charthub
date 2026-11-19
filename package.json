@@ -1,0 +1,23 @@
+{
+  "name": "charthub",
+  "version": "1.0.0",
+  "description": "ChartView Pro - High-Performance Multi-Chart Trading & Technical Analysis Terminal",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "trading",
+    "charting",
+    "technical-analysis",
+    "tradingview-alternative",
+    "candlestick-charts",
+    "volume-profile",
+    "pine-script",
+    "crypto",
+    "binance",
+    "nse"
+  ],
+  "author": "rraj285181-rgb",
+  "license": "MIT"
+}
