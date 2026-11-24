@@ -6,6 +6,12 @@ const url = require('url');
 const zlib = require('zlib');
 
 const PORT = process.env.PORT || 3000;
+process.on('uncaughtException', (err) => {
+  console.error('[Server uncaughtException]', err && err.message ? err.message : err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[Server unhandledRejection]', reason && reason.message ? reason.message : reason);
+});
 const DATA_DIR = __dirname;
 const yahooChartCache = new Map();
 const yahooQuoteCache = new Map();
@@ -106,6 +112,15 @@ function parseYahooChartPayload(rawJson, fallbackSymbol) {
       deduped[deduped.length - 1] = candles[i];
     } else {
       deduped.push(candles[i]);
+    }
+  }
+  // Trim all trailing synthetic post-market closing settlement ticks where O=H=L=C (zero range)
+  while (deduped.length > 1) {
+    const last = deduped[deduped.length - 1];
+    if (Math.abs(last[2] - last[3]) < 0.0001) {
+      deduped.pop();
+    } else {
+      break;
     }
   }
   const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? (deduped[0] ? deduped[0][1] : null);
@@ -290,8 +305,12 @@ const server = http.createServer((req, res) => {
       });
       bRes.pipe(res);
     }).on('error', (err) => {
-      res.writeHead(502, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-      res.end(JSON.stringify({ error: err.message }));
+      if (!res.headersSent) {
+        res.writeHead(502, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ error: err.message }));
+      } else {
+        try { res.destroy(); } catch(e) {}
+      }
     });
     return;
   }
@@ -315,8 +334,12 @@ const server = http.createServer((req, res) => {
       });
       bRes.pipe(res);
     }).on('error', (err) => {
-      res.writeHead(502, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-      res.end(JSON.stringify({ error: err.message }));
+      if (!res.headersSent) {
+        res.writeHead(502, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ error: err.message }));
+      } else {
+        try { res.destroy(); } catch(e) {}
+      }
     });
     return;
   }
@@ -1169,6 +1192,9 @@ const server = http.createServer((req, res) => {
 
   // Serve static files
   let filePath = path.join(DATA_DIR, pathname === '/' ? 'index.html' : pathname);
+  if (pathname === '/favicon.ico') {
+    filePath = path.join(DATA_DIR, 'candora_logo_icon.png');
+  }
   
   if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
     const ext = path.extname(filePath).toLowerCase();
@@ -1178,7 +1204,11 @@ const server = http.createServer((req, res) => {
       '.css': 'text/css; charset=utf-8',
       '.json': 'application/json; charset=utf-8',
       '.csv': 'text/plain; charset=utf-8',
-      '.svg': 'image/svg+xml'
+      '.svg': 'image/svg+xml',
+      '.png': 'image/png',
+      '.ico': 'image/x-icon',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg'
     };
     const mime = mimeTypes[ext] || 'application/octet-stream';
     res.writeHead(200, {
