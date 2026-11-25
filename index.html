@@ -144,12 +144,13 @@
       filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
     }
 
-    body.page-mode-terminal .brand .brand-logo-full {
+    body.page-mode-terminal .brand {
       display: none !important;
     }
 
+    body.page-mode-terminal .brand .brand-logo-full,
     body.page-mode-terminal .brand .brand-logo-icon {
-      display: inline-block !important;
+      display: none !important;
     }
 
     .brand svg {
@@ -13980,13 +13981,31 @@ sell = crossunder(ema9, ema21);
       else document.exitFullscreen();
     });
 
-    // Screenshot
+    // Screenshot (1-Click Download & Clipboard Copy with Toast)
     document.getElementById('btnScreenshot').addEventListener('click', () => {
-      const chart = app.charts[app.activeChartIndex];
-      const link = document.createElement('a');
-      link.download = `${chart.symbol || 'chart'}_${chart.formatTFLabel()}.png`;
-      link.href = chart.canvas.toDataURL('image/png');
-      link.click();
+      const chart = app.charts[app.activeChartIndex] || app.charts[0];
+      if (!chart || !chart.canvas) return;
+      const disp = (typeof formatDisplaySymbol === 'function') ? formatDisplaySymbol(chart.symbol) : (chart.symbol || 'chart');
+      const filename = `${chart.symbol || 'chart'}_${chart.formatTFLabel()}.png`;
+      try {
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = chart.canvas.toDataURL('image/png');
+        link.click();
+
+        if (chart.canvas.toBlob && navigator.clipboard && window.ClipboardItem) {
+          chart.canvas.toBlob(blob => {
+            if (blob) {
+              navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).catch(() => {});
+            }
+          });
+        }
+        if (typeof showBrokerToast === 'function') {
+          showBrokerToast(`📸 Snapshot saved: ${disp} (${chart.formatTFLabel()})`);
+        }
+      } catch (e) {
+        console.warn('Screenshot export error:', e);
+      }
     });
 
     // Drawing Tools & Flyout Submenus
